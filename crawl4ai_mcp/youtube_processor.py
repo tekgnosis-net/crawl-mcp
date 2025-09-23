@@ -6,18 +6,24 @@ Simple and reliable transcript extraction without complex authentication
 
 import asyncio
 import re
-import logging
 import os
 from typing import Dict, List, Optional, Any, Union
 from urllib.parse import urlparse, parse_qs
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 from youtube_transcript_api.formatters import TextFormatter
 
+# Import our custom logging
+from .utils.logging import get_logger
+
+# Initialize logger
+logger = get_logger()
+
 
 class YouTubeProcessor:
     """Process YouTube videos and extract transcripts"""
     
     def __init__(self):
+        logger.debug("Initializing YouTubeProcessor")
         self.formatter = TextFormatter()
         self.youtube_patterns = [
             r'(?:https?://)?(?:www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]{11})',
@@ -362,8 +368,10 @@ class YouTubeProcessor:
         include_metadata: bool = True
     ) -> Dict[str, Any]:
         """Process YouTube URL and extract transcript"""
+        logger.debug("process_youtube_url called with URL: %s, languages: %s", url, languages)
         
         if not self.is_youtube_url(url):
+            logger.warning("Invalid YouTube URL provided: %s", url)
             return {
                 'success': False,
                 'error': 'URL is not a valid YouTube video URL',
@@ -412,6 +420,7 @@ class YouTubeProcessor:
             }
             
         except Exception as e:
+            logger.error("YouTube processing failed for URL: %s, video_id: %s, error: %s", url, video_id, str(e))
             return {
                 'success': False,
                 'error': f'YouTube processing failed: {str(e)}',

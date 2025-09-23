@@ -287,6 +287,25 @@ File Information:
                 )
                 
                 extracted_content = response.choices[0].message.content
+
+            elif provider == 'localai':
+                # Use centralized factory to create LocalAI client for chat
+                from ..config import get_llm_config
+                from .utilities import create_openai_client
+                provider_cfg = get_llm_config().get_provider_config('localai')
+                client = create_openai_client('localai', provider_cfg, purpose='chat')
+
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": f"You are a helpful assistant that summarizes {content_type} content while preserving important metadata."},
+                        {"role": "user", "content": full_prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=min(4000, config['target_tokens'] * 2)  # Allow up to 2x target for flexibility
+                )
+                
+                extracted_content = response.choices[0].message.content
             else:
                 raise ValueError(f"Provider {provider} not supported in direct mode")
         else:

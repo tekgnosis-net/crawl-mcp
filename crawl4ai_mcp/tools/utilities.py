@@ -1,5 +1,11 @@
 import os
 
+# Import our custom logging
+from ..utils.logging import get_logger
+
+# Initialize logger
+logger = get_logger()
+
 def create_openai_client(provider: str, provider_cfg: dict, purpose: str = "chat"):
     """
     Create and return an OpenAI client for chat completions.
@@ -7,7 +13,7 @@ def create_openai_client(provider: str, provider_cfg: dict, purpose: str = "chat
     provider_cfg: dict with 'api_key' or similar
     purpose: 'chat' (default)
     """
-    print(f"[DEBUG] create_openai_client called with provider: {provider}, purpose: {purpose}")
+    logger.debug("create_openai_client called with provider: %s, purpose: %s", provider, purpose)
     if provider != "openai":
         raise ValueError(f"Provider {provider} not supported")
     try:
@@ -276,7 +282,7 @@ async def batch_crawl(
     
     Returns List of CrawlResponse objects for each URL.
     """
-    print(f"[DEBUG] batch_crawl called with {len(urls)} URLs")
+    logger.debug("batch_crawl called with %d URLs", len(urls))
     if not urls:
         return []
     
@@ -345,7 +351,7 @@ async def get_tool_selection_guide() -> Dict[str, Any]:
     
     Returns dictionary with tool selection guide, workflows, and complexity mapping.
     """
-    print("[DEBUG] get_tool_selection_guide called")
+    logger.debug("get_tool_selection_guide called")
     try:
         return {
             "success": True,
@@ -579,7 +585,7 @@ async def get_llm_config_info() -> Dict[str, Any]:
     
     Returns dictionary with LLM configuration details including available providers and models.
     """
-    print("[DEBUG] get_llm_config_info called")
+    logger.debug("get_llm_config_info called")
     try:
         # Import config functions
         try:
@@ -608,7 +614,8 @@ async def get_llm_config_info() -> Dict[str, Any]:
                 "ollama",
                 "azure",
                 "together",
-                "groq"
+                "groq",
+                "custom"
             ],
             "supported_features": [
                 "Content summarization for large documents",
@@ -642,6 +649,8 @@ async def get_llm_config_info() -> Dict[str, Any]:
                     "OPENAI_API_KEY for OpenAI models",
                     "ANTHROPIC_API_KEY for Claude models", 
                     "GOOGLE_API_KEY for Gemini models",
+                    "CUSTOM_LLM_CHAT_API_KEY for custom endpoints",
+                    "CUSTOM_LLM_EMBEDDING_API_KEY for custom embedding endpoints",
                     "Or configure via MCP settings"
                 ],
                 "recommended_models": {

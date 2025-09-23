@@ -7,6 +7,12 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import re
 
+# Import our custom logging
+from .logging import get_logger
+
+# Initialize logger
+logger = get_logger()
+
 
 def parse_time_period(period: Optional[Any]) -> Optional[Union[int, str]]:
     """
@@ -26,6 +32,7 @@ def parse_time_period(period: Optional[Any]) -> Optional[Union[int, str]]:
         or date string for month/year periods,
         or None if period is None/invalid
     """
+    logger.debug("parse_time_period called with period: %s", period)
     if period is None:
         return None
 

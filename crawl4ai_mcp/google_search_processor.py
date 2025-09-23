@@ -11,11 +11,16 @@ from typing import Dict, List, Optional, Any, Union, Tuple
 from urllib.parse import urlparse, urljoin
 from googlesearch import search
 import aiohttp
-import logging
 from bs4 import BeautifulSoup
 from dataclasses import dataclass
 from collections import defaultdict
 from datetime import datetime, timedelta
+
+# Import our custom logging
+from .utils.logging import get_logger
+
+# Initialize logger
+logger = get_logger()
 
 
 @dataclass
@@ -84,9 +89,11 @@ class CustomSearchAPIClient:
     """Google Custom Search API client"""
     
     def __init__(self):
+        logger.debug("Initializing GoogleSearchProcessor")
         self.api_key = os.getenv('GOOGLE_SEARCH_API_KEY')
         self.search_engine_id = os.getenv('GOOGLE_SEARCH_ENGINE_ID')
         self.base_url = "https://www.googleapis.com/customsearch/v1"
+        logger.debug("GoogleSearchProcessor initialized, API configured: %s", self.is_configured())
         
     def is_configured(self) -> bool:
         """Check if Custom Search API is properly configured"""
@@ -100,7 +107,11 @@ class CustomSearchAPIClient:
         region: str = 'us'
     ) -> Dict[str, Any]:
         """Perform search using Google Custom Search API"""
+        logger.debug("GoogleSearchProcessor.search called with query: %s, num_results: %d, language: %s, region: %s", 
+                    query, num_results, language, region)
+        
         if not self.is_configured():
+            logger.warning("Custom Search API not configured for query: %s", query)
             return {
                 'success': False,
                 'error': 'Custom Search API not configured. Missing API key or search engine ID.',
@@ -192,6 +203,7 @@ class CustomSearchAPIClient:
                         await asyncio.sleep(0.1)
             
             if not results:
+                logger.warning("No search results found for query: %s", query)
                 return {
                     'success': False,
                     'error': 'No search results found',
@@ -199,6 +211,7 @@ class CustomSearchAPIClient:
                     'suggestion': 'Try a different search query'
                 }
             
+            logger.debug("Successfully completed search for query: %s, returned %d results", query, len(results))
             return {
                 'success': True,
                 'query': query,
@@ -208,12 +221,14 @@ class CustomSearchAPIClient:
             }
             
         except aiohttp.ClientError as e:
+            logger.error("Network error during search for query: %s, error: %s", query, str(e))
             return {
                 'success': False,
                 'error': f'Network error: {str(e)}',
                 'suggestion': 'Check internet connection and try again'
             }
         except Exception as e:
+            logger.error("Custom Search API error for query: %s, error: %s", query, str(e))
             return {
                 'success': False,
                 'error': f'Custom Search API error: {str(e)}'

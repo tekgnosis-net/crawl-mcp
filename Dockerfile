@@ -90,17 +90,10 @@ RUN pip install --upgrade pip
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create playwright browsers directory with proper permissions before installing
-RUN mkdir -p /ms-playwright && chmod 755 /ms-playwright
-
-# Install playwright browsers (chromium, firefox, webkit)
-RUN playwright install chromium firefox webkit
-
 # Set up browser environment variables for headless operation
 ENV DISPLAY=:99
 ENV CHROME_BIN=/usr/bin/google-chrome
 ENV CHROMIUM_BIN=/usr/bin/chromium-browser
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Configure headless browser settings for optimal performance
 ENV CHROME_FLAGS="--no-sandbox --disable-dev-shm-usage --disable-gpu --disable-extensions --disable-default-apps --disable-translate --disable-device-discovery-notifications --disable-software-rasterizer --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-features=TranslateUI --disable-ipc-flooding-protection --disable-hang-monitor --disable-prompt-on-repost --no-first-run --no-default-browser-check --disable-logging --disable-permission-action-reporting"
@@ -111,6 +104,15 @@ COPY crawl4ai_mcp/ ./crawl4ai_mcp/
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
 USER app
+
+# Set Playwright browsers path to app user's home directory (updated for app user)
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/app/.cache/ms-playwright
+
+# Create the browsers directory
+RUN mkdir -p /home/app/.cache/ms-playwright
+
+# Install Playwright browsers as the app user
+RUN playwright install chromium firefox webkit
 
 # Set additional runtime environment variables for browser optimization
 ENV PYTHONUNBUFFERED=1

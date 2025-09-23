@@ -47,6 +47,12 @@ from ..suppress_output import suppress_stdout_stderr
 file_processor = FileProcessor()
 youtube_processor = YouTubeProcessor()
 
+# Import our custom logging
+from ..utils.logging import get_logger
+
+# Initialize logger
+logger = get_logger()
+
 
 # Placeholder for summarize_web_content function
 # Response size limit for MCP protocol (approximately 100k tokens)
@@ -195,6 +201,7 @@ async def _internal_crawl_url(request: CrawlRequest) -> CrawlResponse:
     Returns:
         CrawlResponse with crawled content and metadata
     """
+    logger.debug("_internal_crawl_url called with URL: %s", request.url)
     try:
         # Check if URL is a YouTube video
         if youtube_processor.is_youtube_url(request.url):
@@ -949,6 +956,24 @@ async def _internal_intelligent_extract(
                 from .utilities import create_openai_client
                 provider_cfg = get_llm_config().get_provider_config('ollama')
                 client = create_openai_client('ollama', provider_cfg, purpose='chat')
+                
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": "You are an expert content analyst specializing in precise information extraction."},
+                        {"role": "user", "content": extraction_prompt}
+                    ],
+                    temperature=0.1,  # Low temperature for consistent extraction
+                    max_tokens=4000
+                )
+                
+                extracted_content = response.choices[0].message.content
+
+            elif provider == 'localai':
+                from ..config import get_llm_config
+                from .utilities import create_openai_client
+                provider_cfg = get_llm_config().get_provider_config('localai')
+                client = create_openai_client('localai', provider_cfg, purpose='chat')
                 
                 response = await client.chat.completions.create(
                     model=model,
@@ -2001,7 +2026,7 @@ async def crawl_url_with_fallback(
                 delay = random.uniform(1, 5)
                 await asyncio.sleep(delay)
             
-            print(f"Attempting strategy {i+1}/{len(strategies)}: {strategy['name']}")
+            logger.info("Attempting strategy %d/%d: %s", i+1, len(strategies), strategy['name'])
             
             # Prepare strategy-specific parameters
             strategy_params = {
@@ -2062,7 +2087,7 @@ async def crawl_url_with_fallback(
             
         except Exception as e:
             last_error = f"Strategy {strategy['name']}: {str(e)}"
-            print(f"Strategy {strategy['name']} failed: {e}")
+            logger.warning("Strategy %s failed: %s", strategy['name'], e)
             continue
     
     # All strategies failed, return error with details

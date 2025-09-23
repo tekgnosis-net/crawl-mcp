@@ -6,6 +6,12 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 from crawl4ai.extraction_strategy import ExtractionStrategy
 
+# Import our custom logging
+from .utils.logging import get_logger
+
+# Initialize logger
+logger = get_logger()
+
 
 class CustomCssExtractionStrategy(ExtractionStrategy):
     """
@@ -20,6 +26,7 @@ class CustomCssExtractionStrategy(ExtractionStrategy):
             selectors: Dictionary mapping field names to CSS selectors
             flatten: Whether to flatten nested results
         """
+        logger.debug("Initializing CustomCssExtractionStrategy with %d selectors, flatten: %s", len(selectors), flatten)
         self.selectors = selectors
         self.flatten = flatten
         super().__init__()
@@ -35,6 +42,7 @@ class CustomCssExtractionStrategy(ExtractionStrategy):
         Returns:
             Dictionary with extracted data
         """
+        logger.debug("CustomCssExtractionStrategy.extract called for URL: %s", url)
         from bs4 import BeautifulSoup
         
         soup = BeautifulSoup(html, 'html.parser')
@@ -42,6 +50,7 @@ class CustomCssExtractionStrategy(ExtractionStrategy):
         
         for field_name, selector in self.selectors.items():
             elements = soup.select(selector)
+            logger.debug("CSS selector '%s' found %d elements", selector, len(elements))
             
             if len(elements) == 0:
                 results[field_name] = None
@@ -59,6 +68,7 @@ class CustomCssExtractionStrategy(ExtractionStrategy):
                         } for elem in elements
                     ]
         
+        logger.debug("CustomCssExtractionStrategy.extract completed for URL: %s, extracted %d fields", url, len(results))
         return results
 
 

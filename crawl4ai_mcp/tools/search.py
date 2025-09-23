@@ -33,6 +33,12 @@ from ..utils.time_parser import parse_time_period
 # Initialize Google search processor
 google_search_processor = GoogleSearchProcessor()
 
+# Import our custom logging
+from ..utils.logging import get_logger
+
+# Initialize logger
+logger = get_logger()
+
 
 # MCP Tool implementations
 async def search_google(
@@ -49,6 +55,7 @@ async def search_google(
     - Set to None to search all dates without filtering
     """
     try:
+        logger.debug("search_google called with query: %s", request.get('query', ''))
         # Extract parameters from request dictionary
         query = request.get('query', '')
         if not query:
@@ -704,8 +711,10 @@ async def batch_search_searxng(
     - Supports multiple summary lengths and LLM providers
     """
     try:
+        logger.debug("batch_search_searxng called")
         # Extract parameters from request dictionary
         queries = request.get('queries', [])
+        logger.debug("queries: %s", queries)
         if not queries:
             return {
                 "success": False,
@@ -743,7 +752,7 @@ async def batch_search_searxng(
                 enhanced_query = f"{query} after:{start_date}"
 
             enhanced_queries.append(enhanced_query)
-
+        logger.debug("enhanced_queries: %s", enhanced_queries)
         # Perform batch search using SearXNG
         async def search_single_query(query: str) -> Dict[str, Any]:
             try:
@@ -756,7 +765,9 @@ async def batch_search_searxng(
                         safe_search=True,
                         search_genre=search_genre
                     )
+                logger.debug("search_single_query result: %s", result)
             except Exception as e:
+                logger.debug("search_single_query failed with error: %s", e)
                 return {
                     'success': False,
                     'query': query,
@@ -769,22 +780,25 @@ async def batch_search_searxng(
 
         async def limited_search(query: str):
             async with semaphore:
+                logger.debug("limited_search called for query: %s", query)
                 return await search_single_query(query)
 
         # Create tasks for all queries
         tasks = [limited_search(query) for query in enhanced_queries]
         batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-
+        logger.debug("batch_results: %s", batch_results)
         # Handle any exceptions that occurred
         processed_results = []
         for i, result in enumerate(batch_results):
             if isinstance(result, Exception):
+                logger.debug("Batch search failed for query: %s with error: %s", enhanced_queries[i], str(result))
                 processed_results.append({
                     'success': False,
                     'query': enhanced_queries[i],
                     'error': f'Unexpected error: {str(result)}'
                 })
             else:
+                logger.debug("Batch search succeeded for query: %s", enhanced_queries[i])
                 processed_results.append(result)
 
         # Process results and count successes/failures
@@ -802,6 +816,7 @@ async def batch_search_searxng(
                     "results": result.get('results', []),
                     "search_metadata": result.get('search_metadata', {})
                 })
+                logger.debug("Batch search succeeded for query: %s", result['query'])
             else:
                 failed += 1
                 final_results.append({
@@ -810,6 +825,7 @@ async def batch_search_searxng(
                     "error": result.get('error', 'Unknown error'),
                     "suggestion": result.get('suggestion')
                 })
+                logger.debug("Batch search failed for query: %s with error: %s", result.get('query', ''), result.get('error', 'Unknown error'))
 
         # Apply AI summarization if requested
         summarization_result = None
@@ -828,6 +844,7 @@ async def batch_search_searxng(
                             url = search_result.get('url', '')
                             if title and snippet:
                                 all_content.append(f"Title: {title}\nURL: {url}\nSnippet: {snippet}\n")
+                logger.debug("Collected %d snippets for summarization", len(all_content))   
 
                 if all_content:
                     combined_content = "\n".join(all_content)
@@ -839,6 +856,7 @@ async def batch_search_searxng(
                         llm_provider=llm_provider,
                         llm_model=llm_model
                     )
+                    logger.debug("summarize_web_content result: %s", summary_result)
 
                     if summary_result.get("success"):
                         summarization_result = {
@@ -849,16 +867,19 @@ async def batch_search_searxng(
                             "llm_model": summary_result.get("llm_model", "unknown"),
                             "summary_length": summary_length
                         }
+                        logger.debug("Summarization successful: %s", summarization_result)
                     else:
                         summarization_result = {
                             "error": summary_result.get("error", "Summarization failed"),
                             "fallback_applied": True
                         }
+                        logger.debug("Summarization failed: %s", summarization_result)
             except Exception as e:
                 summarization_result = {
                     "error": f"Summarization error: {str(e)}",
                     "fallback_applied": True
                 }
+                logger.debug("Summarization exception: %s", summarization_result)
 
         response = {
             "success": True,
@@ -881,10 +902,11 @@ async def batch_search_searxng(
         # Add summarization result if available
         if summarization_result:
             response["ai_summary"] = summarization_result
-
+        logger.debug("batch_search_searxng response: %s", response)
         return response
 
     except Exception as e:
+        logger.debug("batch_search_searxng exception: %s", e)
         return {
             "success": False,
             "total_queries": len(request.get('queries', [])),
@@ -894,5 +916,3 @@ async def batch_search_searxng(
             "error": f"Batch SearXNG search error: {str(e)}",
             "searxng_url": request.get('searxng_url', 'https://searx.org')
         }
-
-

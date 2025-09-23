@@ -18,6 +18,9 @@ try:
 except ImportError:
     DOTENV_AVAILABLE = False
 
+# Import our custom logging
+from .utils.logging import MCPLogger
+
 
 @dataclass
 class LLMProviderConfig:
@@ -29,6 +32,16 @@ class LLMProviderConfig:
     api_version: Optional[str] = None  # API version for Azure OpenAI
     models: list = None
     extra_headers: Optional[Dict[str, str]] = None  # Additional HTTP headers for API requests
+    custom_chat_llm_api_key: Optional[str] = None  # Custom chat LLM API key (if different)
+    custom_chat_llm_base_url: Optional[str] = None  # Custom chat LLM base URL (if different)
+    custom_chat_llm_model: Optional[str] = None  # Custom chat LLM model name
+    custom_embeddings_llm_api_key: Optional[str] = None  # Custom embeddings LLM API key (if different)
+    custom_embeddings_llm_base_url: Optional[str] = None  # Custom embeddings LLM base URL (if different)
+    custom_embeddings_llm_model: Optional[str] = None  # Custom embeddings LLM model name
+    use_custom_endpoints: bool = False  # Whether to use custom endpoints for chat/embeddings
+    logging_enabled: bool = True  # Enable detailed logging
+    logging_level: str = "INFO"  # Logging level (e.g., INFO, DEBUG)
+    custom_logging_path: Optional[str] = None  # Custom logging path (if different)
 
 
 @dataclass
@@ -41,7 +54,12 @@ class MCPLLMConfig:
 
 class ConfigManager:
     """Manages loading and accessing LLM configuration from MCP settings"""
-    
+    self.logging_enabled: bool = True
+    self.logging_level: str = "INFO"
+    self.custom_logging_path: Optional[str] = None
+    self.logger: MCPLogger = None
+    self.llm_config: Optional[MCPLLMConfig] = None
+
     def __init__(self):
         self.llm_config: Optional[MCPLLMConfig] = None
         self._load_env_vars()
@@ -78,6 +96,19 @@ class ConfigManager:
     def _load_config(self):
         """Load LLM configuration from MCP server environment or config files"""
         
+        # Setup logging level from environment variable
+        log_level = os.getenv('MCP_LOGGING_LEVEL', 'INFO').upper()
+        if log_level not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+            log_level = 'INFO'
+            print(f"ℹ️ MCP Logging Level: {log_level}", file=sys.stderr)
+        
+        log_file = os.getenv('MCP_LOG_FILE', None)
+        if log_file:
+            print(f"ℹ️ MCP Log File: {log_file}", file=sys.stderr)
+            self.logger = MCPLogger(level=log_level, log_file=log_file)
+        else:
+            print(f"ℹ️ MCP Logging to console at level: {log_level}", file=sys.stderr)
+            self.logger = MCPLogger(level=log_level)
         # Try to load from environment variable (if MCP passes config)
         config_json = os.getenv('MCP_LLM_CONFIG')
         if config_json:
@@ -131,6 +162,34 @@ class ConfigManager:
                     print(f"Warning: Failed to load config from {config_file}: {e}", file=sys.stderr)
                     continue
         
+        if not self.llm_config:
+            print("⚠️ No LLM configuration found in MCP_LLM_CONFIG or claude_desktop_config.json", file=sys.stderr)
+            print("Will check for custom LLM environment variables or use defaults.", file=sys.stderr)
+            if os.getenv('USE_CUSTOM_OPENAI_ENDPOINTS', 'false').lower() == 'true':
+                print("✅ Detected custom OpenAI endpoints from environment variables.", file=sys.stderr)
+                self.llm_config = MCPLLMConfig(
+                    default_provider=os.getenv('CUSTOM_OPENAI_PROVIDER', 'localai'),
+                    default_model=os.getenv('CUSTOM_OPENAI_CHAT_MODEL_NAME', 'gpt-4.1'),
+                    providers={
+                        default_provider: LLMProviderConfig(
+                            custom_chat_llm_api_key=os.getenv('CUSTOM_OPENAI_CHAT_API_KEY'),
+                            custom_chat_llm_base_url=os.getenv('CUSTOM_OPENAI_CHAT_BASE_URL'),
+                            custom_chat_llm_model=os.getenv('CUSTOM_OPENAI_CHAT_MODEL_NAME', 'gpt-4.1'),
+                            custom_embeddings_llm_api_key=os.getenv('CUSTOM_OPENAI_EMBEDDINGS_API_KEY'),
+                            custom_embeddings_llm_base_url=os.getenv('CUSTOM_OPENAI_EMBEDDINGS_BASE_URL'),
+                            custom_embeddings_llm_model=os.getenv('CUSTOM_OPENAI_EMBEDDINGS_MODEL_NAME', 'text-embedding-3-small'),
+                            use_custom_endpoints=True,
+                            api_key_env='CUSTOM_OPENAI_PROVIDER',
+                            base_url='CUSTOM_OPENAI_CHAT_BASE_URL',
+                            api_key='CUSTOM_OPENAI_CHAT_API_KEY',
+                            api_version='v1',
+                            models=[os.getenv('CUSTOM_OPENAI_CHAT_MODEL_NAME', 'gpt-4.1')]
+                        )
+                    }
+                )
+                print("✅ Loaded custom OpenAI LLM configuration from environment variables.", file=sys.stderr)
+            return
+
         # Fallback to default configuration
         print("Using default LLM configuration", file=sys.stderr)
         self.llm_config = self._get_default_config()
@@ -186,6 +245,13 @@ class ConfigManager:
                     base_url_env='AZURE_OPENAI_ENDPOINT',
                     api_version='2025-04-01-preview',
                     models=['gpt-4.1', 'gpt-o4-mini']
+                ),
+                'localai': LLMProviderConfig(
+                    api_key=None,
+                    api_key_env='LOCALAI_API_KEY',  # Optional API key for LocalAI
+                    base_url=None,
+                    base_url_env='LOCALAI_BASE_URL',  # e.g., http://localhost:8080
+                    models=['/models/OpenAI-20B-NEO-CODE2-Plus-Uncensored-IQ4_NL.gguf', 'Mistral-7B-Instruct-v0.1.gguf']
                 )
             }
         )
@@ -215,7 +281,12 @@ class ConfigManager:
             print(f"Warning: No config found for provider {provider}", file=sys.stderr)
             return None
         
-        # First, try direct API key
+        # First try custom llm if configured
+        if provider_config.use_custom_endpoints and provider_config.custom_chat_llm_api_key:
+            print(f"✅ Loaded custom chat LLM API key for {provider} (starts with: {provider_config.custom_chat_llm_api_key[:15]}...)", file=sys.stderr)
+            return provider_config.custom_chat_llm_api_key
+
+        # Next, try direct API key
         if provider_config.api_key:
             print(f"✅ Loaded API key for {provider} from configuration (starts with: {provider_config.api_key[:15]}...)", file=sys.stderr)
             return provider_config.api_key
@@ -238,7 +309,12 @@ class ConfigManager:
         if not provider_config:
             return None
         
-        # First, try direct base URL
+        # First try custom llm if configured
+        if provider_config.use_custom_endpoints and provider_config.custom_chat_llm_base_url:
+            print(f"✅ Loaded custom chat LLM base URL for {provider} from configuration: {provider_config.custom_chat_llm_base_url}", file=sys.stderr)
+            return provider_config.custom_chat_llm_base_url
+
+        # Next, try direct base URL
         if provider_config.base_url:
             return provider_config.base_url
         
@@ -266,6 +342,13 @@ class ConfigManager:
         if not provider_config:
             return False
         
+        # First check custom llm if configured
+        if provider_config.use_custom_endpoints and provider_config.custom_chat_llm_api_key:
+            return True
+        elseif provider_config.use_custom_endpoints and provider_config.custom_chat_llm_base_url:
+            # If no API key but custom base URL is set, assume it's valid (e.g., LocalAI without key)
+            return True
+
         # Check direct API key
         if provider_config.api_key:
             return True
@@ -307,6 +390,9 @@ class ConfigManager:
         
         # If provider is specified, try it first
         if provider:
+            if self.llm_config.get_provider_config(provider).use_custom_endpoints:
+                print(f"ℹ️ Using custom endpoints for provider: {provider}", file=sys.stderr)
+
             if self.has_valid_api_key(provider):
                 target_provider = provider
                 target_model = model or self.get_default_model()

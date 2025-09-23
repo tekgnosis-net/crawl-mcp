@@ -13,6 +13,7 @@ from typing import Optional, Union
 
 class MCPLogger:
     """Enhanced logger for MCP server with console and file support."""
+    format_string: str = '%(asctime)s %(filename)s %(funcName)s %(lineno)d  %(name)s [%(levelname)8s]: %(message)s'
 
     def __init__(
         self,
@@ -21,7 +22,7 @@ class MCPLogger:
         log_file: Optional[str] = None,
         max_file_size: int = 10 * 1024 * 1024,  # 10MB
         backup_count: int = 5,
-        format_string: Optional[str] = None
+        format_string: Optional[str] = '%(asctime)s %(filename)s %(funcName)s %(lineno)d %(name)s [%(levelname)8s]: %(message)s'
     ):
         """
         Initialize the MCP logger.
@@ -42,7 +43,7 @@ class MCPLogger:
 
         # Default format
         if format_string is None:
-            format_string = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+            format_string = "%(asctime)s %(filename)s %(funcName)s %(lineno)d  %(name)s [%(levelname)8s]: %(message)s"
 
         formatter = logging.Formatter(format_string, datefmt="%Y-%m-%d %H:%M:%S")
 

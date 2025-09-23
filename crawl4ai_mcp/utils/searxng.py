@@ -9,6 +9,12 @@ from collections import defaultdict
 
 import aiohttp
 
+# Import our custom logging
+from .logging import get_logger
+
+# Initialize logger
+logger = get_logger()
+
 
 class SearXNGClient:
     """
@@ -26,6 +32,7 @@ class SearXNGClient:
             base_url: The base URL of the SearXNG instance (e.g., "https://searx.org")
             timeout: Request timeout in seconds
         """
+        logger.debug("Initializing SearXNGClient with base_url: %s, timeout: %d", base_url, timeout)
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
         self.session: Optional[aiohttp.ClientSession] = None
@@ -65,6 +72,7 @@ class SearXNGClient:
         Returns:
             Dictionary containing search results in GoogleSearchProcessor format
         """
+        logger.debug("SearXNGClient.search called with query: %s, num_results: %d", query, num_results)
         if not self.session:
             raise RuntimeError("Client must be used as async context manager")
 

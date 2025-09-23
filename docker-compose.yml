@@ -17,7 +17,7 @@ services:
       # Headless browser optimization
       - CRAWL4AI_BROWSER_TYPE=${CRAWL4AI_BROWSER_TYPE:-chromium}
       - CRAWL4AI_HEADLESS=true
-      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+      - PLAYWRIGHT_BROWSERS_PATH=/home/app/.cache/ms-playwright
       - DISPLAY=:99
       # Chrome-specific flags for Docker (quoted because value contains spaces)
       - 'CHROME_FLAGS=--no-sandbox --disable-dev-shm-usage --disable-gpu --headless'

@@ -7,10 +7,17 @@ import os
 from contextlib import contextmanager
 from io import StringIO
 
+# Import our custom logging
+from .utils.logging import get_logger
+
+# Initialize logger
+logger = get_logger()
+
 
 @contextmanager
 def suppress_stdout_stderr():
     """Context manager to suppress stdout and stderr output."""
+    logger.debug("Suppressing stdout and stderr")
     # Save the original stdout and stderr
     original_stdout = sys.stdout
     original_stderr = sys.stderr
@@ -26,6 +33,7 @@ def suppress_stdout_stderr():
         sys.stderr.close()
         sys.stdout = original_stdout
         sys.stderr = original_stderr
+        logger.debug("Restored stdout and stderr")
 
 
 @contextmanager

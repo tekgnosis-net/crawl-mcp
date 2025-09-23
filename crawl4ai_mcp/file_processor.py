@@ -14,12 +14,18 @@ import requests
 from markitdown import MarkItDown
 import base64
 from urllib.parse import urlparse, unquote
-import logging
+
+# Import our custom logging
+from .utils.logging import get_logger
+
+# Initialize logger
+logger = get_logger()
 
 class FileProcessor:
     """Process various file formats using MarkItDown"""
     
     def __init__(self):
+        logger.debug("Initializing FileProcessor")
         self.markitdown = MarkItDown()
         self.supported_extensions = {
             # PDF files
@@ -201,10 +207,13 @@ class FileProcessor:
     
     async def process_file_from_url(self, url: str, max_size_mb: int = 100) -> Dict[str, Any]:
         """Process file from URL"""
+        logger.debug("process_file_from_url called with URL: %s, max_size_mb: %d", url, max_size_mb)
+        
         # Get file type early to avoid reference errors
         file_type = self.get_file_type(url)
         
         if not self.is_supported_file(url):
+            logger.warning("Unsupported file format for URL: %s, type: %s", url, file_type)
             return {
                 'success': False,
                 'error': f"Unsupported file format. Supported: {', '.join(self.supported_extensions.keys())}",
@@ -235,6 +244,7 @@ class FileProcessor:
                 
                 try:
                     result = self.markitdown.convert(temp_file.name)
+                    logger.debug("Successfully processed file from URL: %s, type: %s, size: %d bytes", url, file_type, len(file_data))
                     return {
                         'success': True,
                         'url': url,
@@ -253,6 +263,7 @@ class FileProcessor:
                         pass
         
         except Exception as e:
+            logger.error("Failed to process file from URL: %s, error: %s", url, str(e))
             return {
                 'success': False,
                 'error': str(e),
@@ -262,6 +273,7 @@ class FileProcessor:
     
     async def process_file_from_data(self, file_data: bytes, filename: str) -> Dict[str, Any]:
         """Process file from binary data"""
+        logger.debug("process_file_from_data called with filename: %s, data size: %d bytes", filename, len(file_data))
         # Get file type early to avoid reference errors
         file_type = self.get_file_type(filename)
         
