@@ -35,7 +35,9 @@ from .web_crawling import (
 # Search tools
 from .search import (
     search_google,
-    batch_search_google, 
+    batch_search_google,
+    search_searxng,
+    batch_search_searxng,
     search_and_crawl,
     get_search_genres
 )
@@ -70,6 +72,8 @@ __all__ = [
     # Search tools
     'search_google',
     'batch_search_google',
+    'search_searxng',
+    'batch_search_searxng',
     'search_and_crawl', 
     'get_search_genres',
     

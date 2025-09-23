@@ -212,24 +212,3 @@ def critical(message: str, *args, **kwargs):
 def exception(message: str, *args, **kwargs):
     """Log exception to default logger."""
     get_logger().exception(message, *args, **kwargs)
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    # Test console-only logging
-    logger = setup_logging(level="DEBUG")
-    logger.info("Console logging test")
-    logger.debug("Debug message")
-    logger.warning("Warning message")
-    logger.error("Error message")
-
-    # Test with file logging
-    logger_file = setup_logging(
-        level="INFO",
-        log_file="test.log",
-        format_string="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    logger_file.info("File logging test")
-    logger_file.error("Error written to file")
-
-    print("Logging test completed. Check test.log for file output.")

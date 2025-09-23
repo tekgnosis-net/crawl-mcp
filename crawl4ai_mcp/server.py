@@ -1693,6 +1693,79 @@ async def get_search_genres() -> Dict[str, Any]:
         }
 
 @mcp.tool()
+async def search_searxng(
+    request: Annotated[Dict[str, Any], Field(description="SearXNGSearchRequest dictionary containing: query (required), searxng_url (default: 'https://searx.org'), num_results (default: 10), search_genre (optional), language (default: 'en'), region (default: 'us'), safe_search (default: True), recent_days (optional, filter to past N days)")]
+) -> Dict[str, Any]:
+    """
+    Perform SearXNG search with genre filtering and extract structured results with metadata.
+
+    Returns web search results with titles, snippets, URLs, and metadata using SearXNG.
+    Supports targeted search genres for better results. Privacy-respecting alternative to Google search.
+
+    Date Filtering:
+    - recent_days: Filters to recent results (e.g., 7 for last week, 30 for last month)
+    - Set to None to search all dates without filtering
+    """
+    _load_tool_modules()
+    if not _tools_imported:
+        return {
+            "success": False,
+            "error": "Tool modules not available"
+        }
+
+    try:
+        result = await search.search_searxng(request)
+        return result
+    except Exception as e:
+        return {
+            "success": False,
+            "query": request.get('query', ''),
+            "error": f"SearXNG search error: {str(e)}",
+            "searxng_url": request.get('searxng_url', 'https://searx.org')
+        }
+
+@mcp.tool()
+async def batch_search_searxng(
+    request: Annotated[Dict[str, Any], Field(description="SearXNGBatchSearchRequest dictionary containing: queries (required list), searxng_url (default: 'https://searx.org'), num_results_per_query (default: 10), search_genre (optional), max_concurrent (default: 5), language (default: 'en'), region (default: 'us'), recent_days (optional), auto_summarize (default: False), summary_length (default: 'medium'), llm_provider (optional), llm_model (optional)")]
+) -> Dict[str, Any]:
+    """
+    Perform multiple SearXNG searches in batch with optional AI summarization.
+
+    Process multiple search queries concurrently using SearXNG.
+    Includes batch processing statistics and result analysis.
+    Privacy-respecting alternative to Google batch search.
+
+    Date Filtering:
+    - recent_days: Filters to recent results (e.g., 7 for last week, 30 for last month)
+    - Set to None to search all dates without filtering
+
+    AI Summarization:
+    - Disabled by default (auto_summarize=False)
+    - When enabled, summarizes all search result snippets using LLM
+    - Supports multiple summary lengths and LLM providers
+    """
+    _load_tool_modules()
+    if not _tools_imported:
+        return {
+            "success": False,
+            "error": "Tool modules not available"
+        }
+
+    try:
+        result = await search.batch_search_searxng(request)
+        return result
+    except Exception as e:
+        return {
+            "success": False,
+            "total_queries": len(request.get('queries', [])),
+            "successful_searches": 0,
+            "failed_searches": len(request.get('queries', [])),
+            "results": [],
+            "error": f"Batch SearXNG search error: {str(e)}",
+            "searxng_url": request.get('searxng_url', 'https://searx.org')
+        }
+
+@mcp.tool()
 async def get_llm_config_info() -> Dict[str, Any]:
     """
     Get information about the current LLM configuration and supported providers.
@@ -1864,7 +1937,7 @@ async def multi_url_crawl(
     
     Pattern Examples:
     - Wildcard: '*news*', '*api*', '*.pdf', 'https://docs.*'
-    - Regex: r'.*/(api|v\d+)/', r'https://[^/]+\.com/news'
+    - Regex: r'.*/(api|v\\d+)/', r'https://[^/]+\\.com/news'
     
     Perfect for mixed-domain crawling with site-specific optimizations.
     """
